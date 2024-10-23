@@ -1,96 +1,55 @@
-#' ...
+#' Send a prompt to a LLM provider
 #'
-#' @param prompt ...
-#' @param llm_provider ...
-#' @param system_prompt ...
-#' @param tool_functions ...
-#' @param extraction_functions ...
-#' @param validation_functions ...
-#' @param max_retries ...
-#' @param verbose ...
+#' @param prompt A prompt object or a single string
+#' @param llm_provider 'llm_provider' object
+#' @param verbose If the interaction with the LLM provider should be printed
 #' @param extract_validate_mode ...
 #'
 #' @return ...
 #' @export
 send_prompt <- function(
     prompt,
-    llm_provider = NULL,
-    system_prompt = NULL,
-    tool_functions = list(),
-    extraction_functions = list(),
-    validation_functions = list(),
-    max_retries = 10,
-    verbose = TRUE,
+    llm_provider,
+    verbose = getOption("tidyprompt.verbose", FALSE),
     extract_validate_mode = c("extraction_then_validation", "wrap_by_wrap")
 ) {
   ## 1 Validate arguments
 
+  prompt <- prompt(prompt)
   extract_validate_mode <- match.arg(extract_validate_mode)
-  prompt <- validate_prompt_list(prompt)
 
 
   ## 2 Retrieve prompt evaluation settings
 
-  # Retrieve llm provider (prioritizing function argument over prompt)
-  if (is.null(llm_provider))
-    llm_provider <- get_llm_provider_from_prompt_list(prompt)
-  if (is.null(llm_provider))
-    stop("No llm_provider provided and no llm_provider found in prompt list.")
-
-  # Retrieve validators, extractors, tool functions (prioritizing function arguments over prompt)
-  if (
-    length(extraction_functions) == 0 |
-    length(validation_functions) == 0
-  )
-    extractors_validators <- get_extractors_and_validators_from_prompt_list(prompt)
-  if (length(extraction_functions) == 0)
-    extraction_functions <- extractors_validators$extractors
-  if (length(validation_functions) == 0)
-    validation_functions <- extractors_validators$validators
-
-  # Retrieve max_retries (prioritizing function argument over prompt)
-  # if (is.null(max_retries))
-    # max_retries <- get_max_retries_from_prompt_list(prompt) # TODO: implement function
-
-  # Retrieve verbose setting (prioritizing function argument over prompt)
-  # if (is.null(verbose))
-    # verbose <- get_verbose_from_prompt_list(prompt) # TODO: implement function
-
-  # Retrieve system prompt
-  # if (is.null(system_prompt))
-  #   system_prompt <- get_system_prompt_from_prompt_list(prompt) # TODO: implement function
+  extractions_validations <- get_extractions_and_validations(prompt)
+  extraction_functions <- extractions_validations$extractions
+  validation_functions <- extractions_validations$validations
 
 
   ## 3 Chat_history & send_chat
 
-  # Create internal chat_history
-  chat_history <- data.frame(
-    role = character(),
-    content = character()
-  )
-  if (!is.null(system_prompt)) {
-    chat_history <- chat_history |>
-      dplyr::bind_rows(data.frame(
-        role = "system",
-        content = system_prompt
-      ))
+  create_chat_df <- function(role = character(), content = character()) {
+    data.frame(role = role, content = content)
   }
 
-  # Create internal function to send_chat to LLM-provider
+  # Create internal chat_history for this prompt
+  chat_history <- create_chat_df()
+
+  # Add system prompt
+  if (!is.null(prompt$system_prompt))
+    chat_history <- create_chat_df("system", prompt$system_prompt)
+
+  # Create internal function to send_chat to the given LLM-provider
   send_chat <- function(message) {
     message <- as.character(message)
 
-    # TODO: logging
     if (verbose) {
       message("--- Sending message to LLM-provider: ---")
       message(message)
     }
 
     chat_history <<- chat_history |>
-      dplyr::bind_rows(data.frame(
-        role = "user",
-        content = message
-      ))
+      dplyr::bind_rows(create_chat_df("user", message)) # TODO: remove dplyr
 
     completion <- llm_provider$complete_chat(chat_history)
 
@@ -100,10 +59,7 @@ send_prompt <- function(
     }
 
     chat_history <<- chat_history |>
-      dplyr::bind_rows(data.frame(
-        role = completion$role,
-        content = completion$content
-      ))
+      dplyr::bind_rows(create_chat_df(completion$role, completion$content))
 
     return(invisible(completion$content))
   }
@@ -111,18 +67,21 @@ send_prompt <- function(
 
   ## 4 Retrieve initial response
 
-  response <- send_chat(prompt |> construct_prompt_text())
+  response <- prompt |> construct_prompt_text() |> send_chat()
 
 
-  ## 6 Extractors & validators toepassen
+  ## 5 Apply extractions and validations
 
-  # Eerst alle extractors, dan alle validators
+  # TODO: wrap by wrap mode
+  max_retries <- 10 # TODO: use max_retries from wraps in prompt object
+
+  # Mode for first all extractions, then all validations:
   if (extract_validate_mode == "extraction_then_validation") {
     tries <- 0; successful_output <- FALSE
     while (tries < max_retries & !successful_output) {
       tries <- tries + 1
 
-      # Apply extractor functions
+      # Apply extraction functions
       extraction_error <- FALSE
       if (length(extraction_functions) > 0) {
         for (i in 1:length(extraction_functions)) {
@@ -171,7 +130,7 @@ send_prompt <- function(
     }
   }
 
-  # Wrap by wrap, eerst alle extractors+validators van één wrap, dan de volgende
+  # Wrap by wrap
   if (extract_validate_mode == "wrap_by_wrap") {
     # TODO: implementation
   }
@@ -184,27 +143,3 @@ send_prompt <- function(
 
   return(response)
 }
-
-# Code to test extractors/validators
-if (FALSE) {
-
-  prompt <- "Hi!" |>
-    add_text("Can you please calculate what is 5+5? Write the answer out as a word") |>
-    answer_as_integer(add_instruction_to_prompt = FALSE) |>
-    set_llm_provider(create_ollama_llm_provider()) |>
-    set_mode_chainofthought()
-  prompt |> construct_prompt_text()
-  prompt |> send_prompt()
-
-  tool_functions <- list(temperature_in_location)
-
-
-  "Hi!" |>
-    send_prompt(
-      llm_provider = create_ollama_llm_provider(),
-      system_prompt = "You are an assistant who always answers in poems. You are also very angry."
-    )
-
-}
-
-

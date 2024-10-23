@@ -2,25 +2,27 @@
 % Please edit documentation in R/tidyprompt-package.R
 \docType{package}
 \name{tidyprompt-package}
+\alias{tidyprompt}
 \alias{tidyprompt-package}
-\title{tidyprompt: What the Package Does (One Line, Title Case)}
+\title{tidyprompt: Prompt and empower your LLM, the tidy way}
 \description{
-What the package does (one paragraph).
+The 'tidyprompt' package allows users to prompt and empower their large language models (LLMs) in a tidy way. It provides a framework to construct LLM prompts using 'tidyverse'-inspired piping syntax, with a library of pre-built prompt wrappers and the option to build custom ones. Additionally, it supports structured LLM output extraction and validation, with automatic feedback and retries if necessary. Moreover, it enables specific LLM reasoning modes, autonomous R function calling for LLMs, and compatibility with any LLM provider.
 }
 \seealso{
 Useful links:
 \itemize{
   \item \url{https://github.com/tjarkvandemerwe/tidyprompt}
+  \item \url{https://tjarkvandemerwe.github.io/tidyprompt/}
   \item Report bugs at \url{https://github.com/tjarkvandemerwe/tidyprompt/issues}
 }
 
 }
 \author{
-\strong{Maintainer}: Luka Koning \email{l.koning@kennispunttwente.nl}
+\strong{Maintainer}: Luka Koning \email{l.koning@kennispunttwente.nl} [copyright holder]
 
 Authors:
 \itemize{
-  \item Tjark Van de Merwe \email{t.vandemerwe@kennispunttwente.nl}
+  \item Tjark Van de Merwe \email{t.vandemerwe@kennispunttwente.nl} [copyright holder]
 }
 
 }
